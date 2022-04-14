@@ -1,30 +1,32 @@
-object AdvancedScheduleDialog: TAdvancedScheduleDialog
-  Left = 349
-  Top = 341
+object SelectListItemDialog: TSelectListItemDialog
+  Left = 337
+  Top = 316
+  ActiveControl = lbxStringList
   BorderStyle = bsDialog
-  Caption = 'Advanced Schedule Options'
-  ClientHeight = 291
-  ClientWidth = 325
+  Caption = 'Change order of list items'
+  ClientHeight = 278
+  ClientWidth = 313
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
-  Position = poScreenCenter
-  OnCreate = FormCreate
-  DesignSize = (
-    325
-    291)
+  OldCreateOrder = True
+  Position = poMainFormCenter
   PixelsPerInch = 96
   TextHeight = 13
+  object lbDesc: TLabel
+    Left = 5
+    Top = 5
+    Width = 3
+    Height = 13
+  end
   object OKBtn: TBitBtn
-    Left = 143
-    Top = 256
-    Width = 71
+    Left = 195
+    Top = 205
+    Width = 113
     Height = 31
-    Anchors = [akRight, akBottom]
     Caption = 'OK'
     Default = True
     Glyph.Data = {
@@ -81,14 +83,12 @@ object AdvancedScheduleDialog: TAdvancedScheduleDialog
     ModalResult = 1
     NumGlyphs = 2
     TabOrder = 0
-    ExplicitTop = 260
   end
   object CancelBtn: TBitBtn
-    Left = 218
-    Top = 256
-    Width = 101
+    Left = 195
+    Top = 240
+    Width = 113
     Height = 31
-    Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Cancel'
     Glyph.Data = {
@@ -145,249 +145,14 @@ object AdvancedScheduleDialog: TAdvancedScheduleDialog
     ModalResult = 2
     NumGlyphs = 2
     TabOrder = 1
-    ExplicitTop = 260
   end
-  object paEnd: TPanel
-    Left = 0
-    Top = 0
-    Width = 325
-    Height = 41
-    Align = alTop
-    BevelOuter = bvNone
+  object lbxStringList: TListBox
+    Left = 5
+    Top = 20
+    Width = 181
+    Height = 251
+    ItemHeight = 13
     TabOrder = 2
-    object cbExpire: TCheckBox
-      Left = 15
-      Top = 15
-      Width = 86
-      Height = 17
-      Caption = 'Expire:'
-      TabOrder = 0
-      OnClick = cbExpireClick
-    end
-    object dpExpire: TDateTimePicker
-      Left = 95
-      Top = 15
-      Width = 91
-      Height = 21
-      Date = 39626.618183761570000000
-      Time = 39626.618183761570000000
-      Enabled = False
-      TabOrder = 1
-    end
-    object dtExpire: TDateTimePicker
-      Left = 195
-      Top = 15
-      Width = 71
-      Height = 21
-      Date = 39626.613225104170000000
-      Format = 'HH:mm'
-      Time = 39626.613225104170000000
-      Kind = dtkTime
-      TabOrder = 2
-    end
-  end
-  object paRepeat: TPanel
-    Left = 0
-    Top = 66
-    Width = 325
-    Height = 76
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 3
-    object Label1: TLabel
-      Left = 25
-      Top = 48
-      Width = 44
-      Height = 13
-      Caption = 'duration:'
-    end
-    object Label2: TLabel
-      Left = 145
-      Top = 48
-      Width = 35
-      Height = 13
-      Caption = 'hour(s)'
-    end
-    object Label3: TLabel
-      Left = 250
-      Top = 48
-      Width = 37
-      Height = 13
-      Caption = 'minutes'
-    end
-    object Label8: TLabel
-      Left = 25
-      Top = 13
-      Width = 32
-      Height = 13
-      Caption = 'every:'
-    end
-    object cbRepUnit: TComboBox
-      Left = 155
-      Top = 10
-      Width = 91
-      Height = 21
-      Style = csDropDownList
-      ItemIndex = 0
-      TabOrder = 0
-      Text = 'hour(s)'
-      OnCloseUp = cbRepUnitCloseUp
-      Items.Strings = (
-        'hour(s)'
-        'minute(s)')
-    end
-    object edInterval: TEdit
-      Left = 110
-      Top = 10
-      Width = 31
-      Height = 21
-      Alignment = taRightJustify
-      TabOrder = 1
-      Text = '1'
-    end
-    object udInterval: TUpDown
-      Left = 94
-      Top = 10
-      Width = 17
-      Height = 21
-      AlignButton = udLeft
-      Associate = edInterval
-      Min = 1
-      Max = 24
-      Position = 1
-      TabOrder = 2
-    end
-    object edHours: TEdit
-      Left = 110
-      Top = 45
-      Width = 31
-      Height = 21
-      Alignment = taRightJustify
-      TabOrder = 3
-      Text = '1'
-    end
-    object udHours: TUpDown
-      Left = 94
-      Top = 45
-      Width = 16
-      Height = 21
-      AlignButton = udLeft
-      Associate = edHours
-      Min = 1
-      Max = 24
-      Position = 1
-      TabOrder = 4
-    end
-    object edMinutes: TEdit
-      Left = 215
-      Top = 45
-      Width = 31
-      Height = 21
-      Alignment = taRightJustify
-      TabOrder = 5
-      Text = '1'
-    end
-    object udMinutes: TUpDown
-      Left = 199
-      Top = 45
-      Width = 16
-      Height = 21
-      AlignButton = udLeft
-      Associate = edMinutes
-      Min = 1
-      Max = 24
-      Position = 1
-      TabOrder = 6
-    end
-  end
-  object paRepHeader: TPanel
-    Left = 0
-    Top = 41
-    Width = 325
-    Height = 25
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 4
-    object cbRepeat: TCheckBox
-      Left = 15
-      Top = 5
-      Width = 266
-      Height = 17
-      Caption = 'Repeat task:'
-      TabOrder = 0
-      OnClick = cbRepeatClick
-    end
-  end
-  object paLimit: TPanel
-    Left = 0
-    Top = 142
-    Width = 325
-    Height = 71
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 5
-    object cbLimitUnit: TComboBox
-      Left = 155
-      Top = 35
-      Width = 91
-      Height = 21
-      Style = csDropDownList
-      ItemIndex = 0
-      TabOrder = 0
-      Text = 'day(s)'
-      OnCloseUp = cbLimitUnitCloseUp
-      Items.Strings = (
-        'day(s)'
-        'hour(s)'
-        'minute(s)')
-    end
-    object cbLimit: TCheckBox
-      Left = 15
-      Top = 10
-      Width = 266
-      Height = 17
-      Caption = 'Stop task if it runs longer than:'
-      TabOrder = 1
-      OnClick = cbLimitClick
-    end
-    object udLimit: TUpDown
-      Left = 94
-      Top = 35
-      Width = 16
-      Height = 21
-      AlignButton = udLeft
-      Associate = edLimit
-      Min = 1
-      Max = 24
-      Position = 1
-      TabOrder = 2
-    end
-    object edLimit: TEdit
-      Left = 110
-      Top = 35
-      Width = 31
-      Height = 21
-      Alignment = taRightJustify
-      TabOrder = 3
-      Text = '1'
-    end
-  end
-  object paReRun: TPanel
-    Left = 0
-    Top = 213
-    Width = 325
-    Height = 36
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 6
-    object cbReRun: TCheckBox
-      Left = 15
-      Top = 5
-      Width = 291
-      Height = 26
-      Caption = 'Run task as soon as possible after a scheduled start is missed'
-      TabOrder = 0
-      WordWrap = True
-    end
+    OnDblClick = lbxStringListDblClick
   end
 end

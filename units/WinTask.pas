@@ -11,7 +11,9 @@
    the specific language governing rights and limitations under the License.
 
    Vers. 1.0 - Oct. 2017
-   last modified: Vers. 1.9 - May 2021
+   Vers. 1.6 - September 2019
+   Vers. 2.0 - January 2022
+   last modified: April 2022
    *)
 
 unit WinTask;
@@ -60,7 +62,7 @@ type
     function GetActionType : TWinTaskActionType;
     function GetActionTypeAsString : string;
     function GetId : string;
-    procedure SetId (Value : string);
+    procedure SetId (const Value : string);
   public
     destructor Destroy; override;
     procedure SetTaskAction(const Value: IAction);
@@ -73,11 +75,11 @@ type
   TWinTaskExecAction = class (TWinTaskAction)
   private
     function GetPath : string;
-    procedure SetPath (Value : string);
+    procedure SetPath (const Value : string);
     function GetArguments : string;
-    procedure SetArguments (Value : string);
+    procedure SetArguments (const Value : string);
     function GetWorkingDirectory : string;
-    procedure SetWorkingDirectory (Value : string);
+    procedure SetWorkingDirectory (const Value : string);
   public
     property ApplicationPath : string read GetPath write SetPath;
     property Arguments : string read GetArguments write SetArguments;
@@ -87,9 +89,9 @@ type
   TWinTaskComHandlerAction = class (TWinTaskAction)
   private
     function GetClassId : string;
-    procedure SetClassId (Value : string);
+    procedure SetClassId (const Value : string);
     function GetData : string;
-    procedure SetData (Value : string);
+    procedure SetData (const Value : string);
   public
     property ClassId : string read GetClassId write SetClassId;
     property Data : string read GetData write SetData;
@@ -123,9 +125,9 @@ type
   TWinTaskMessageAction = class (TWinTaskAction)
   private
     function GetTitle : string;
-    procedure SetTitle (Value : string);
+    procedure SetTitle (const Value : string);
     function GetMessageBody : string;
-    procedure SetMessageBody (Value : string);
+    procedure SetMessageBody (const Value : string);
   public
     property Title: String read GetTitle write SetTitle;
     property MessageBody: String read GetMessageBody write SetMessageBody;
@@ -181,9 +183,9 @@ type
     function GetEnabled : boolean;
     procedure SetEnabled (Value : boolean);
     function GetId : string;
-    procedure SetId (Value : string);
+    procedure SetId (const Value : string);
     function GetLogonUserId : string;
-    procedure SetLogonUserId (Value : string);
+    procedure SetLogonUserId (const Value : string);
     function GetInterval : cardinal;             // time in seconds
     procedure SetInterval (Value : cardinal);
     function GetRandomDelay : cardinal;             // time in seconds
@@ -193,7 +195,7 @@ type
     function GetStopAtDurationEnd : boolean;
     procedure SetStopAtDurationEnd (Value : boolean);
     function GetSubscription : string;
-    procedure SetSubscription (Value : string);
+    procedure SetSubscription (const Value : string);
     function GetTriggerType : TWinTaskTriggerType;
     function GetTriggerTypeAsString : string;
     function GetTriggerString : String;
@@ -252,24 +254,24 @@ type
     FSelectedAction : integer;
     FTriggers: TWinTaskTriggers;
     function GetAuthor : string;
-    procedure SetAuthor (Value : string);
+    procedure SetAuthor (const Value : string);
     function GetData : string;
-    procedure SetData (Value : string);
+    procedure SetData (const Value : string);
     function GetDate : TDateTime;
     function GetDateAsString : string;
     procedure SetDate (Value : TDateTime);
     function GetDescription : string;
-    procedure SetDescription (Value : string);
+    procedure SetDescription (const Value : string);
     function GetDocumentation : string;
-    procedure SetDocumentation (Value : string);
+    procedure SetDocumentation (const Value : string);
     function GetDisplayName : string;
-    procedure SetDisplayName (Value : string);
+    procedure SetDisplayName (const Value : string);
     function GetGroupId : string;
-    procedure SetGroupId (Value : string);
+    procedure SetGroupId (const Value : string);
     function GetId : string;
-    procedure SetId (Value : string);
+    procedure SetId (const Value : string);
     function GetUserId : string;
-    procedure SetUserId (Value : string);
+    procedure SetUserId (const Value : string);
     function GetLogonType : TLogonType;
     procedure SetLogonType (Value : TLogonType);
     function GetRunLevel : boolean;
@@ -372,30 +374,52 @@ type
     property TaskName : string read FTaskName;
     end;
 
-  TWinTaskList = class (TObjectList)
+  TWinTaskList = class (TObjectList);
+  TWinTaskFolderList = class (TObjectList);
+
+  TWinTaskSubFolder = class (TObject)
+  private
+    pTaskFolder : ITaskFolder;
+    function GetName : string;
+    function GetPath : string;
   public
-//    function Add (ARegTask : TWinRegisteredTask) : integer;
+    constructor Create (const ATaskFolder : ITaskFolder);
+    destructor Destroy; override;
+    property Name : string read GetName;
+    property Path : string read GetPath;
     end;
 
   TWinTaskFolder = class (TObject)
   private
     pRootFolder : ITaskFolder;
     pTaskCollection : IRegisteredTaskCollection;
-    FNumTasks: LONG;
+    pTaskFolderCollection : ITaskFolderCollection;
+    FNumTasks, FNumFolders : LONG;
     FTasks : TWinTaskList;
+    FFolders : TWinTaskFolderList;
     FErrMsg : string;
     FErrorCode : cardinal;
+    function GetName : string;
+    function GetPath : string;
     function GetTask(Index : Integer): TWinRegisteredTask;
+    function GetFolder(Index : Integer): TWinTaskSubfolder;
   public
     constructor Create (ARootFolder : ITaskFolder);
     destructor Destroy; override;
     function Refresh : HResult;
-    function DeleteTask (const TaskName: string) : cardinal;
-    function IndexOf (const TaskName: String): integer;
+    function DeleteTask (const TaskName: string) : boolean;
+    function IndexOfTask (const TaskName: String): integer;
     function RegisterTask (const TaskName : string; ATask : TWinTask;
                            Username, Password : string) : integer;
+    function IndexOfFolder (const FolderName: String): integer;
+    function CreateFolder (const AName : string) : integer;
+    function DeleteFolder (const AName : string) : boolean;
     property ErrorCode : cardinal read FErrorCode;
     property ErrorMessage : string read FErrMsg;
+    property FolderName : string read GetName;
+    property FolderPath : string read GetPath;
+    property Folders[Index: Integer] : TWinTaskSubfolder read GetFolder;
+    property FolderCount : integer read FNumFolders;
     property NumberOfTasks : integer read FNumTasks;
     property Tasks[Index: Integer] : TWinRegisteredTask read GetTask;
     property TaskCount : integer read FNumTasks;
@@ -416,7 +440,7 @@ type
     function Init : HResult;
     function Refresh : HResult;
     function NewTask : TWinTask;
-    property Folder : string read FFolder write SetFolder;
+    property Path : string read FFolder write SetFolder;
     property TaskFolder : TWinTaskFolder read FTaskFolder;
   public
     class function IsRunning: Boolean;
@@ -542,13 +566,13 @@ function ReadNextValue (var sTime : string) : word;
 var
   n,k,v : integer;
 const
-  Numbers = ['0'..'9'];
+  Numbers : TSysCharSet = ['0'..'9'];
 begin
   if length(sTime)>0 then begin
     n:=1;
-    while not (sTime[n] in Numbers) do inc(n);
+    while (n<=length(sTime)) and not CharInSet(sTime[n],Numbers) do inc(n);
     k:=n;
-    while sTime[k] in Numbers do inc(k);
+    while (k<=length(sTime)) and CharInSet(sTime[k],Numbers) do inc(k);
     if TryStrToInt(copy(sTime,n,k-n),v) then Result:=v
     else Result:=0;
     Delete(sTime,1,k-1);
@@ -562,7 +586,7 @@ begin
   end;
 
 // Convert boundary string to TDateTime
-function BoundaryToTimeInfo (Boundary : string) : TTimeInfo; overload;
+function BoundaryToTimeInfo (Boundary : string) : TTimeInfo;
 var
   y,m,d,h,n,s : integer;
 begin
@@ -599,7 +623,7 @@ begin
     end;
   end;
 
-function BoundaryToDateTime (Boundary : string) : TDateTime;  overload;
+function BoundaryToDateTime (const Boundary : string) : TDateTime;
 begin
   Result:=BoundaryToTimeInfo(Boundary).DateTime;
   end;
@@ -674,7 +698,7 @@ begin
   Result:=pAction.Id;
   end;
 
-procedure TWinTaskAction.SetId (Value : string);
+procedure TWinTaskAction.SetId (const Value : string);
 begin
   pAction.Id:=Value;
   end;
@@ -695,7 +719,7 @@ begin
 //  Result:=AnsiDequotedStr((pAction as IExecAction).Path,'"');
   end;
 
-procedure TWinTaskExecAction.SetPath (Value : string);
+procedure TWinTaskExecAction.SetPath (const Value : string);
 begin
   (pAction as IExecAction).Path:=Value;
   end;
@@ -705,7 +729,7 @@ begin
   Result:=(pAction as IExecAction).Arguments;
   end;
 
-procedure TWinTaskExecAction.SetArguments (Value : string);
+procedure TWinTaskExecAction.SetArguments (const Value : string);
 begin
   (pAction as IExecAction).Arguments:=Value;
   end;
@@ -715,7 +739,7 @@ begin
   Result:=(pAction as IExecAction).WorkingDirectory;
   end;
 
-procedure TWinTaskExecAction.SetWorkingDirectory (Value : string);
+procedure TWinTaskExecAction.SetWorkingDirectory (const Value : string);
 begin
   (pAction as IExecAction).WorkingDirectory:=Value;
   end;
@@ -726,7 +750,7 @@ begin
   Result:=(pAction as IComHandlerAction).ClassId;
   end;
 
-procedure TWinTaskComHandlerAction.SetClassId (Value : string);
+procedure TWinTaskComHandlerAction.SetClassId (const Value : string);
 begin
   (pAction as IComHandlerAction).ClassId:=Value;
   end;
@@ -736,7 +760,7 @@ begin
   Result:=(pAction as IComHandlerAction).Data;
   end;
 
-procedure TWinTaskComHandlerAction.SetData (Value : string);
+procedure TWinTaskComHandlerAction.SetData (const Value : string);
 begin
   (pAction as IComHandlerAction).Data:=Value;
   end;
@@ -791,7 +815,7 @@ begin
   Result:=(pAction as IShowMessageAction).Title;
   end;
 
-procedure TWinTaskMessageAction.SetTitle (Value : string);
+procedure TWinTaskMessageAction.SetTitle (const Value : string);
 begin
   (pAction as IShowMessageAction).Title:=Value;
   end;
@@ -801,7 +825,7 @@ begin
   Result:=(pAction as IShowMessageAction).MessageBody;
   end;
 
-procedure TWinTaskMessageAction.SetMessageBody (Value : string);
+procedure TWinTaskMessageAction.SetMessageBody (const Value : string);
 begin
   (pAction as IShowMessageAction).MessageBody:=Value;
   end;
@@ -1137,7 +1161,7 @@ begin
   Result:=pTrigger.Id;
   end;
 
-procedure TWinTaskTrigger.SetId (Value : string);
+procedure TWinTaskTrigger.SetId (const Value : string);
 begin
   pTrigger.Id:=Value;
   end;
@@ -1158,7 +1182,7 @@ begin
   else Result:='';
   end;
 
-procedure TWinTaskTrigger.SetLogonUserId (Value : string);
+procedure TWinTaskTrigger.SetLogonUserId (const Value : string);
 begin
   if FTriggerType=ttLogon then ILogonTrigger(pTrigger).UserId:=Value;
   end;
@@ -1169,7 +1193,7 @@ begin
   else Result:='';
   end;
 
-procedure TWinTaskTrigger.SetSubscription (Value : string);
+procedure TWinTaskTrigger.SetSubscription (const Value : string);
 begin
   if FTriggerType=ttEvent then IEventTrigger(pTrigger).Subscription:=Value;
   end;
@@ -1391,7 +1415,7 @@ begin
   Result:=pDefinition.RegistrationInfo.Author;
   end;
 
-procedure TWinTask.SetAuthor (Value : string);
+procedure TWinTask.SetAuthor (const Value : string);
 begin
   pDefinition.RegistrationInfo.Author:=Value;
   end;
@@ -1401,7 +1425,7 @@ begin
   Result:=pDefinition.Data;
   end;
 
-procedure TWinTask.SetData (Value : string);
+procedure TWinTask.SetData (const Value : string);
 begin
   pDefinition.Data:=Value;
   end;
@@ -1426,7 +1450,7 @@ begin
   Result:=pDefinition.RegistrationInfo.Description;
   end;
 
-procedure TWinTask.SetDescription (Value : string);
+procedure TWinTask.SetDescription (const Value : string);
 begin
   pDefinition.RegistrationInfo.Description:=Value;
   end;
@@ -1436,7 +1460,7 @@ begin
   Result:=pDefinition.RegistrationInfo.Documentation;
   end;
 
-procedure TWinTask.SetDocumentation (Value : string);
+procedure TWinTask.SetDocumentation (const Value : string);
 begin
   pDefinition.RegistrationInfo.Documentation:=Value;
   end;
@@ -1446,7 +1470,7 @@ begin
   Result:=pDefinition.Principal.DisplayName;
   end;
 
-procedure TWinTask.SetDisplayName (Value : string);
+procedure TWinTask.SetDisplayName (const Value : string);
 begin
   pDefinition.Principal.DisplayName:=Value;
   end;
@@ -1456,7 +1480,7 @@ begin
   Result:=pDefinition.Principal.GroupId;
   end;
 
-procedure TWinTask.SetGroupId (Value : string);
+procedure TWinTask.SetGroupId (const Value : string);
 begin
   pDefinition.Principal.GroupId:=Value;
   end;
@@ -1466,7 +1490,7 @@ begin
   Result:=pDefinition.Principal.Id;
   end;
 
-procedure TWinTask.SetId (Value : string);
+procedure TWinTask.SetId (const Value : string);
 begin
   pDefinition.Principal.Id:=Value;
   end;
@@ -1476,7 +1500,7 @@ begin
   Result:=pDefinition.Principal.UserId;
   end;
 
-procedure TWinTask.SetUserId (Value : string);
+procedure TWinTask.SetUserId (const Value : string);
 begin
   pDefinition.Principal.UserId:=Value;
   end;
@@ -1693,6 +1717,30 @@ begin
 
 
 {------------------------------------------------------------------- }
+constructor TWinTaskSubfolder.Create (const ATaskFolder : ITaskFolder);
+
+begin
+  inherited Create;
+  pTaskFolder:=ATaskFolder;
+  end;
+
+destructor TWinTaskSubfolder.Destroy;
+begin
+  pTaskFolder:=nil;
+  inherited Destroy;
+  end;
+
+function TWinTaskSubfolder.GetName : string;
+begin
+  Result:=pTaskFolder.Name;
+  end;
+
+function TWinTaskSubfolder.GetPath : string;
+begin
+  Result:=pTaskFolder.Path;
+  end;
+
+{------------------------------------------------------------------- }
 constructor TWinRegisteredTask.Create(const ARegisteredTask : IRegisteredTask);
 begin
   inherited Create;
@@ -1790,29 +1838,33 @@ begin
   Result:=FTask.IndexOfApp(AppFilter);
   end;
 
-
-{------------------------------------------------------------------- }
-//function TWinTaskList.Add (ARegTask : TWinRegisteredTask) : integer;
-//begin
-//  Result:=inherited Add(ARegTask);
-//  ARegTask.TaskIndex:=Result;
-//  end;
-
 {------------------------------------------------------------------- }
 constructor TWinTaskFolder.Create (ARootFolder : ITaskFolder);
 begin
   inherited Create;
   FTasks:=TWinTaskList.Create;
+  FFolders:=TWinTaskFolderList.Create;
   pRootFolder:=ARootFolder;
   FErrMsg:=''; FErrorCode:=ERROR_SUCCESS;
   end;
 
 destructor TWinTaskFolder.Destroy;
 begin
-  FreeAndNil(FTasks);
+  FreeAndNil(FTasks); FreeAndNil(FFolders);
   pTaskCollection:=nil;
   pRootFolder:=nil;
   inherited Destroy;
+  end;
+
+function TWinTaskFolder.GetName : string;
+begin
+  Result:=pRootFolder.Name;
+  if Result='\' then Result:='';
+  end;
+
+function TWinTaskFolder.GetPath : string;
+begin
+  Result:=pRootFolder.Path;
   end;
 
 function TWinTaskFolder.GetTask (Index : Integer) : TWinRegisteredTask;
@@ -1820,10 +1872,16 @@ begin
   Result:=TWinRegisteredTask(FTasks.Items[Index]);
   end;
 
+function TWinTaskFolder.GetFolder(Index : Integer): TWinTaskSubfolder;
+begin
+  Result:=TWinTaskSubfolder(FFolders.Items[Index]);
+  end;
+
 function TWinTaskFolder.Refresh : HResult;
 var
   i : integer;
   ARegTask : TWinRegisteredTask;
+  ATaskFolder : TWinTaskSubfolder;
 begin
   try
     //  Get the registered tasks in the folder.
@@ -1835,28 +1893,73 @@ begin
       ARegTask.Refresh;
       ARegTask.TaskIndex:=FTasks.Add(ARegTask);
       end;
-    Result:=ERROR_SUCCESS;
+    //  Get the registered tasks in the folder.
+    pTaskFolderCollection:=pRootFolder.GetFolders(0);
+    FNumFolders:=pTaskFolderCollection.Count;
+    FFolders.Clear;
+    for i:=1 to FNumFolders do begin
+      ATaskFolder:=TWinTaskSubfolder.Create(pTaskFolderCollection.Item[i]);
+      FFolders.Add(ATaskFolder);
+      end;
+    FErrorCode:=ERROR_SUCCESS;
   except
-    on E:EOleSysError do Result:=E.ErrorCode;
+    on E:EOleSysError do with E do begin
+      FErrMsg:=Message; FErrorCode:= ErrorCode;
+      end;
+    end;
+  Result:=FErrorCode;
+  end;
+
+function TWinTaskFolder.IndexOfFolder (const FolderName: String): integer;
+begin
+  for Result:=0 to FolderCount-1 do
+    if AnsiSameText(Folders[Result].Name,FolderName) then Exit;
+  Result:=-1;
+  end;
+
+function TWinTaskFolder.CreateFolder (const AName : string) : integer;
+begin
+  FErrMsg:=''; FErrorCode:=ERROR_SUCCESS;
+  try
+    pRootFolder.CreateFolder(AName,'');
+    if succeeded(Refresh) then Result:=IndexOfFolder(AName)
+    else Result:=-1;
+  except
+    on E:EOleSysError do with E do begin
+      FErrMsg:=Message; FErrorCode:= ErrorCode; Result:=-1;
+      end;
     end;
   end;
 
-function TWinTaskFolder.IndexOf(const TaskName: string): integer;
+function TWinTaskFolder.DeleteFolder (const AName : string) : boolean;
+begin
+  FErrMsg:=''; FErrorCode:=ERROR_SUCCESS;
+  try
+    pRootFolder.DeleteFolder(AName,0);
+    Result:=succeeded(Refresh);
+  except
+    on E:EOleSysError do with E do begin
+      FErrMsg:=Message; FErrorCode:= ErrorCode; Result:=false;
+      end;
+    end;
+  end;
+
+function TWinTaskFolder.IndexOfTask(const TaskName: string): integer;
 begin
   for Result:=0 to TaskCount-1 do
     if AnsiSameText(Tasks[Result].TaskName,TaskName) then Exit;
   Result:=-1;
   end;
 
-function TWinTaskFolder.DeleteTask (const TaskName: string) : cardinal;
+function TWinTaskFolder.DeleteTask (const TaskName: string) : boolean;
 begin
-  Result:=ERROR_SUCCESS; FErrMsg:=''; FErrorCode:=ERROR_SUCCESS;
+  FErrMsg:=''; FErrorCode:=ERROR_SUCCESS;
   try
     pRootFolder.DeleteTask(TaskName,0);
-    Refresh;
+    Result:=succeeded(Refresh);
   except
     on E:EOleSysError do with E do begin
-      FErrMsg:=Message; FErrorCode:= ErrorCode; Result:=ErrorCode;
+      FErrMsg:=Message; FErrorCode:= ErrorCode; Result:=false;
       end;
     end;
   end;
@@ -1877,7 +1980,7 @@ begin
     pRegisteredTask:=pRootFolder.RegisterTaskDefinition(TaskName,ATask.pDefinition,
        TASK_CREATE_OR_UPDATE,Username,Password,TaskFlags[ATask.LogonType],'');
     Refresh;
-    Result:=IndexOf(TaskName);
+    Result:=IndexOfTask(TaskName);
   except
     on E:EOleSysError do with E do begin
       FErrMsg:=Message; FErrorCode:=ErrorCode;

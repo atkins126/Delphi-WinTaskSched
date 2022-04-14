@@ -45,6 +45,7 @@ type
     btbEdit: TBitBtn;
     btbRun: TBitBtn;
     Timer: TTimer;
+    paTop: TPanel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -61,6 +62,7 @@ type
     { Private-Deklarationen }
     WinTasks : TWinTaskScheduler;
     SelectedTaskIndex : integer;
+    function SelectSubfolder : boolean;
     function GetListIndex (ATaskIndex : integer) : integer;
     procedure UpdateListView (AIndex : integer);
     procedure ShowData(Item: TListItem; Selected: Boolean);
@@ -75,8 +77,8 @@ implementation
 
 {$R *.dfm}
 
-uses System.Win.ComObj, System.DateUtils, Vcl.FileCtrl, Winapi.ActiveX,
-  TaskSchedDlg;
+uses System.Win.ComObj, System.DateUtils, System.StrUtils, Vcl.FileCtrl, Winapi.ActiveX,
+  TaskSchedDlg, SelectListItemDlg;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 var
@@ -114,16 +116,47 @@ begin
 
 procedure TMainForm.FormShow(Sender: TObject);
 begin
-  UpdateListView(0);
+  if SelectSubfolder then UpdateListView(0) else Close;
+  end;
+
+function TMainForm.SelectSubfolder : boolean;
+var
+  fl : TStringList;
+  i  : integer;
+  s  : string;
+begin
+  fl:=TStringList.Create;
+  fl.Add('- Create new subfolder');
+  fl.Add('- Root');
+  with WinTasks.TaskFolder do for i:=0 to FolderCount-1 do fl.Add(Folders[i].Name);
+  i:=SelectListItemDialog.Execute(Caption,'Select Task Scheduler Library folder:',fl,1);
+  with WinTasks,TaskFolder do if (i=0) or (i>1) then begin
+    if i=0 then begin
+      s:=InputBox(Caption,'Name of new subfolder:','');
+      if length(s)>0 then begin
+        i:=IndexOfFolder(s);
+        if i<0 then i:=CreateFolder(s);
+        end;
+      end
+    else dec(i,2);
+    if i>=0 then Path:=Folders[i].Path
+    else MessageDlg('Error on creating subfolder',mtError,[mbOK],0);
+    end;
+  Result:=i>=0;
+  fl.Free;
   end;
 
 procedure TMainForm.UpdateListView (AIndex : integer);
 var
   i : integer;
+  s : string;
 begin
   lvTasks.Clear;
   lvTasks.Items.BeginUpdate;
   with WinTasks.TaskFolder do begin
+    s:=FolderName;
+    if length(s)>0 then s:=' - '+s;
+    paTop.Caption:='Task Scheduler Libray'+s;
     for i:=0 to TaskCount-1 do with Tasks[i] do begin
       with lvTasks.Items.Add do begin
         Caption:=TaskName;
@@ -139,7 +172,7 @@ begin
     if AINdex>=Items.Count then AIndex:=Items.Count-1;
     ItemIndex:=AIndex;
     Invalidate;
-    Selected.MakeVisible(false);
+    if ItemIndex>=0 then Selected.MakeVisible(false);
     end;
   end;
 
@@ -238,7 +271,7 @@ var
 begin
   User:=''; pwd:=''; sn:='';
   if InputQuery('Create new Task?','Name of task:',sn) then with WinTasks do begin
-    n:=TaskFolder.IndexOf(sn);
+    n:=TaskFolder.IndexOfTask(sn);
     if n<0 then begin
       td:=NewTask;
       with td do begin
@@ -309,7 +342,7 @@ begin
   if SelectedTaskIndex>=0 then with WinTasks.TaskFolder do begin
     sn:=Tasks[SelectedTaskIndex].TaskName;
     if MessageDlg(Format('Delete task "%s"?',[sn]),mtConfirmation,mbYesNo,0)=mrYes then begin
-      if failed(DeleteTask(sn)) then MessageDlg(ErrorMessage,mtError,[mbOK],0)
+      if not DeleteTask(sn) then MessageDlg(ErrorMessage,mtError,[mbOK],0)
       else UpdateListView(GetListIndex(SelectedTaskIndex));
       end;
     end;

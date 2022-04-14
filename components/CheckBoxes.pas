@@ -13,7 +13,8 @@
 
   Vers. 1 - Apr. 2015
         2 - Jan. 2016
-        2.1 - December 2021 : CMShowingChanged added to init the procedure pointers
+        2.1 - December 2021 : procedure Init added to initialize the procedure pointers
+                              from calling unit
    last modified: December 2021
 *)
 
@@ -387,7 +388,7 @@ begin
 procedure TCheckComboBox.CMShowingChanged(var Message: TMessage);
 begin
   inherited;
-  Init;
+//  Init;
   end;
 
 procedure TCheckComboBox.CNCommand(var Message: TWMCommand);
