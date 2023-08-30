@@ -12,7 +12,7 @@
    the specific language governing rights and limitations under the License.
 
    Vers. 1.0 - Oct. 2017
-   last mofified: April 2019
+   last mofified: March 2023
    *)
 
 unit TaskMain;
@@ -22,7 +22,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Buttons,
-  Vcl.ExtCtrls, WinTask;
+  Vcl.ExtCtrls, WinTask, System.ImageList, Vcl.ImgList;
 
 type
   TMainForm = class(TForm)
@@ -46,6 +46,8 @@ type
     btbRun: TBitBtn;
     Timer: TTimer;
     paTop: TPanel;
+    imgHeader: TImageList;
+    btnRefresh: TSpeedButton;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -58,6 +60,11 @@ type
     procedure btbEditClick(Sender: TObject);
     procedure btbRunClick(Sender: TObject);
     procedure TimerTimer(Sender: TObject);
+    procedure lvTasksColumnClick(Sender: TObject; Column: TListColumn);
+    procedure lvTasksCompare(Sender: TObject; Item1, Item2: TListItem;
+      Data: Integer; var Compare: Integer);
+    procedure btnRefreshClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   private
     { Private-Deklarationen }
     WinTasks : TWinTaskScheduler;
@@ -104,6 +111,12 @@ begin
 //  CoUninitialize;
   end;
 
+procedure TMainForm.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if (Key=VK_F5) then btnRefreshClick(Sender);
+  end;
+
 procedure TMainForm.FormResize(Sender: TObject);
 begin
   with lvTasks do begin
@@ -146,6 +159,17 @@ begin
   fl.Free;
   end;
 
+procedure TMainForm.btnRefreshClick(Sender: TObject);
+var
+  s : string;
+begin
+  with lvTasks do s:=Items[ItemIndex].Caption;
+  with WinTasks do begin
+    Refresh;
+    UpdateListView(GetListIndex(TaskFolder.IndexOfTask(s)));
+    end;
+  end;
+
 procedure TMainForm.UpdateListView (AIndex : integer);
 var
   i : integer;
@@ -164,6 +188,7 @@ begin
         SubItems.Add(StatusAsString);
         SubItems.Add(LastRunTimeAsString);
         SubItems.Add(NextRunTimeAsString);
+        ImageIndex:=-1;
         end;
       end;
     end;
@@ -173,6 +198,53 @@ begin
     ItemIndex:=AIndex;
     Invalidate;
     if ItemIndex>=0 then Selected.MakeVisible(false);
+    end;
+  end;
+
+procedure TMainForm.lvTasksColumnClick(Sender: TObject; Column: TListColumn);
+var
+  nc,i : integer;
+  rev : boolean;
+begin
+  with (Sender as TListView) do begin
+    nc:=Tag;
+    for i:=0 to Columns.Count-1 do Columns[i].ImageIndex:=-1;
+    end;
+  rev:=nc and $10 <>0;
+  if nc and $F = Column.Index then rev:= not rev
+  else if Column.Index=0 then rev:=false else rev:=true;
+  nc:=Column.Index;
+  if rev then nc:=nc or $10;
+  with Column do if rev then ImageIndex:=1 else ImageIndex:=0;
+  with (Sender as TListView) do begin
+    Tag:=nc;
+    AlphaSort;
+    end;
+  end;
+
+procedure TMainForm.lvTasksCompare(Sender: TObject; Item1, Item2: TListItem;
+  Data: Integer; var Compare: Integer);
+var
+  n : integer;
+
+  function CompareDateTimeStr (const Date1,Date2 : string) : integer;
+  var
+    dt1,dt2 : TDateTime;
+  begin
+    if not TryStrToDateTime(Date1,dt1) then dt1:=0;
+    if not TryStrToDateTime(Date2,dt2) then dt2:=0;
+    Result:=CompareDateTime(dt1,dt2);
+    end;
+
+begin
+  with (Sender as TCustomListView) do begin
+    n:=Tag and $F;
+    if n=0 then Compare:=AnsiCompareText(Item1.Caption,Item2.Caption)  // Name
+    else if n=1 then Compare:=AnsiCompareText(Item1.SubItems[0],Item2.SubItems[0])  // Status
+    else begin       // Date
+      Compare:=CompareDateTimeStr(Item1.SubItems[n-1],Item2.SubItems[n-1]);
+      end;
+    if Tag and $10 <>0 then Compare:=-Compare;
     end;
   end;
 
@@ -243,8 +315,7 @@ begin
 
 procedure TMainForm.TimerTimer(Sender: TObject);
 begin
-  UpdateListView(lvTasks.ItemIndex);
-//  ShowData(lvTasks.Items[lvTasks.ItemIndex],true);
+  btnRefreshClick(Sender);
   end;
 
 function TMainForm.GetListIndex (ATaskIndex : integer) : integer;

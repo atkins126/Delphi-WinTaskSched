@@ -12,10 +12,13 @@
    the specific language governing rights and limitations under the License.
 
    J. Rathlev, Jul. 2008
-   last updated: August 2020
+   last updated: March 2023
    *)
 
 unit TaskSchedDlg;
+
+{$HINTS OFF}
+{$WARN SYMBOL_DEPRECATED OFF}
 
 interface
 
@@ -201,6 +204,56 @@ begin
   Strdispose(p);
   end;
 
+type
+  TGetUserNameEx = function (NameFormat : DWORD; lpBuffer: LPWSTR; var nSize: DWORD): BOOL; stdcall;
+
+const
+  secur32 = 'Secur32.dll';
+
+  // from secur32.dll
+  NameUnknown            = 0;
+  NameFullyQualifiedDN   = 1;
+  NameSamCompatible      = 2;
+  NameDisplay            = 3;
+  NameUniqueId           = 6;
+  NameCanonical          = 7;
+  NameUserPrincipal      = 8;
+  NameCanonicalEx        = 9;
+  NameServicePrincipal   = 10;
+  NameDnsDomain          = 12;
+
+function GetExtendedUserName(NameFormat : DWORD; var UserName : string) : boolean;
+var
+  p : pchar;
+  size : dword;
+  Secur32Handle : THandle;
+  GetUserNameEx : TGetUserNameEx;
+begin
+  Result:=false;
+  Secur32Handle:=SafeLoadLibrary(secur32);
+  try
+    if Secur32Handle<>0 then begin
+      GetUserNameEx:=GetProcAddress(Secur32Handle,'GetUserNameExW');
+      if assigned(GetUserNameEx) then begin
+        size:=1024;
+        p:=StrAlloc(size);
+        if GetUserNameEx (NameFormat,p,size) then begin
+          UserName:=p;
+          Result:=true;
+          end;
+        StrDispose(p);
+        end;
+      end;
+  finally
+    FreeLibrary(Secur32Handle);
+    end;
+  end;
+
+function UserFullName : string;
+begin
+  if not GetExtendedUserName(NameSamCompatible,Result) then Result:=UserName;
+  end;
+
 function SystemDirectory : string;
 var
   p : pchar;
@@ -321,7 +374,7 @@ procedure TTaskScheduleDialog.ShowSecOptions;
 begin
   if rbLoggedUser.Checked then begin
     with edUser do begin
-      Text:=UserName;         // logged on user
+      Text:=UserFullName;         // logged on user
       Enabled:=false;
       end;
     edPwd.Visible:=false;
@@ -562,7 +615,7 @@ begin
   udDays.Position:=2;
   edDays.Enabled:=false; udDays.Enabled:=false; laDays.Enabled:=false;
   with AdvSet do begin
-    UseEndDate:=false; UseLimit:=false; ReRun:=false;
+    UseEndDate:=false; RepeatTask:=false; UseLimit:=false; ReRun:=false; StopEndDuration:=false;
     MinutesInterval:=60; MinutesDuration:=1440; MinutesLimit:=4320;
     EndDate:=ADateTime;
     end;
@@ -663,14 +716,14 @@ begin
   pcMain.ActivePage:=tsProgram;
   pcSteps.ActivePageIndex:=0;
   sp:='';
-  if length(AUsername)=0 then AUserName:=UserName;
+  if length(AUsername)=0 then AUserName:=UserFullName;
   with ASchedTask do begin
     if length(UserId)=0 then begin
       UserId:=AUsername;
       if length(Author)=0 then Author:=UserId;
       end;
     edJobName.Text:=ATaskName;
-    rgPriority.ItemIndex:=integer(Priority);
+    rgPriority.ItemIndex:=integer(Settings.Priority);
     leDesc.Text:=Description;
     if LogonType=ltToken then rbLoggedUser.Checked:=true else rbAnyUser.Checked:=true;
     ShowSecOptions;
@@ -683,8 +736,10 @@ begin
       end;
     edUser.Text:=UserId;
     edPwd.Text:='';
-    AdvSet.ReRun:=RunIfMissed;
-    if Compatibility<=tcXP then Compatibility:=GetDefaultCompatibility;
+    with Settings do begin
+      AdvSet.ReRun:=RunIfMissed;
+      if Compatibility<=tcXP then Compatibility:=GetDefaultCompatibility;
+      end;
     ok:=true;
     if TriggerCount>0 then TrgNr:=0 else TrgNr:=-1;
     if TrgNr>=0 then begin
@@ -713,10 +768,11 @@ begin
           UseEndDate:=EndTime>Now;
           if UseEndDate then EndDate:=DateOf(EndTime+1)-OneSecond
           else EndDate:=Date+366-OneSecond;
-          RepeatTask:=Duration>0;
+          RepeatTask:=Interval>0;
+          StopEndDuration:=StopAtDurationEnd;
           if RepeatTask then begin
-            MinutesDuration:=Duration div 60;
             MinutesInterval:=Interval div 60;
+            if StopEndDuration then MinutesDuration:=Duration div 60;
             end;
           UseLimit:=ExecutionTimeLimit>0;
           if UseLimit then MinutesLimit:=ExecutionTimeLimit div 60;
@@ -821,7 +877,7 @@ begin
       UserId:=AUsername;
       Description:=leDesc.Text;
       if rbLoggedUser.Checked then LogonType:=ltToken else LogonType:=ltPassword;
-      RunIfMissed:=AdvSet.ReRun;
+      Settings.RunIfMissed:=AdvSet.ReRun;
       with FTaskAction do begin
         WorkingDirectory:=MakeQuotedStr(edWorkDir.Text,[' ',',']);
         ApplicationPath:=edProg.Text;
@@ -841,21 +897,22 @@ begin
         if (FTrgType<>NewTrgType) then begin
           if not DeleteTrigger(TrgNr) then begin
             MessageDlg(Format('Could not delete trigger (%u)'+sLineBreak+'Task: ',[TrgNr,FTaskName]),mtError,[mbOK],0);
+            Result:=false;
             end
           else FTrigger:=NewTrigger(NewTrgType);
           end;
         end
       else FTrigger:=NewTrigger(NewTrgType);
-      with FTrigger do begin
+      if Result then with FTrigger do begin
         Enabled:=cbEnabled.Checked;
         with AdvSet do begin
           if UseEndDate then begin
             if EndTime<=StartTime then EndTime:=StartTime+OneMinute else EndTime:=EndDate
             end
           else EndTime:=0;
+          StopAtDurationEnd:=StopEndDuration;
           if RepeatTask then begin
             Duration:=MinutesDuration*60; Interval:=MinutesInterval*60;
-            if Duration<=Interval then Duration:=Interval+1;
             end
           else begin
             Duration:=0; Interval:=0;
@@ -923,7 +980,7 @@ begin
           end;
         StartTime:=DateOf(bd)+round(MinsPerDay*TimeOf(bt))/MinsPerDay;  // Sekunden = 0
         end;
-      Priority:=TThreadPriority(rgPriority.ItemIndex);
+      Settings.Priority:=TThreadPriority(rgPriority.ItemIndex);
       end;
     end
   end;

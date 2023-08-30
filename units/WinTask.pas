@@ -13,7 +13,9 @@
    Vers. 1.0 - Oct. 2017
    Vers. 1.6 - September 2019
    Vers. 2.0 - January 2022
-   last modified: April 2022
+   Vers. 2.1 - March 2023 -  Repetition trigger fixed
+   Vers. 2.2 - March 2023 - structure of WinTask redesigned (separate settings object)
+   last modified: March 2023
    *)
 
 unit WinTask;
@@ -21,7 +23,7 @@ unit WinTask;
 interface
 
 uses
-  Winapi.Windows, System.Classes, System.SysUtils, System.Contnrs, TaskSchedApi;
+  Winapi.Windows, System.Classes, System.Contnrs, TaskSchedApi;
 
 const
   BitMask : array [1..16] of word = (1,2,4,8,$10,$20,$40,$80,$100,$200,$400,$800,
@@ -32,6 +34,7 @@ const
 type
   TWinTaskStatus = (tsUnknown, tsReady, tsQueued, tsRunning, tsDisabled);
   TWinTaskCompatibility = (tcAT,tcXP,tcVista,tcWin7,tcWin10);
+  TMultipleInstances = (miParallel,miQueue,miIgnoreNew,miStopExisting);
   TWinTaskActionType = (taExec,taCom,taMail,taMessage);
   TWinTaskTriggerType = (ttEvent,ttTime,ttDaily,ttWeekly,ttMonthly,ttMonthlyDow,ttIdle,
     ttRegistration,ttBoot,ttLogon,ttSessionStateChange,ttCustom);
@@ -54,6 +57,7 @@ type
     end;
 
   TWinTask = class;
+  TWinTaskSettings = class;
 
   TWinTaskAction = class (TCollectionItem)
   private
@@ -153,8 +157,6 @@ type
     FTriggerType : TWinTaskTriggerType;
     FTimeZone : boolean;
     FTimeOffset : integer; // time zone offset in minutes
-    function TimeStringToSeconds (TimeString : string) : cardinal;
-    function SecondsToTimeString (Seconds : cardinal) : string;
 
     function GetDaysOfWeek : integer;
     procedure SetDaysOfWeek (Value : integer);
@@ -174,6 +176,8 @@ type
     procedure SetDaysInterval (Value : SmallInt);
     function GetDelay : cardinal;               // time in seconds
     procedure SetDelay (Value : cardinal);
+    function GetStopAtDurationEnd : boolean;
+    procedure SetStopAtDurationEnd (Value : boolean);
     function GetDuration : cardinal;            // time in seconds
     procedure SetDuration (Value : cardinal);
     function GetExecutionTimeLimit : cardinal;  // time in seconds
@@ -192,8 +196,6 @@ type
     procedure SetRandomDelay (Value : cardinal);
     function GetStartTime : TDateTime;
     procedure SetStartTime (Value : TDateTime);
-    function GetStopAtDurationEnd : boolean;
-    procedure SetStopAtDurationEnd (Value : boolean);
     function GetSubscription : string;
     procedure SetSubscription (const Value : string);
     function GetTriggerType : TWinTaskTriggerType;
@@ -209,6 +211,7 @@ type
     property DaysInterval : SmallInt read GetDaysInterval write SetDaysInterval;
     property DaysOfMonth : integer read GetDaysOfMonth write SetDaysOfMonth;
     property DaysOfWeek : integer read GetDaysOfWeek write SetDaysOfWeek;
+    property StopAtDurationEnd : boolean read GetStopAtDurationEnd write SetStopAtDurationEnd;
     property Duration : cardinal read GetDuration write SetDuration;
     property ExecutionTimeLimit : cardinal read GetExecutionTimeLimit write SetExecutionTimeLimit;
     property EndTime : TDateTime read GetEndTime write SetEndTime;
@@ -221,7 +224,6 @@ type
     property RunOnLastDayOfMonth : boolean read GetRunOnLastDayOfMonth write SetRunOnLastDayOfMonth;
     property RunOnLastWeekOfMonth : boolean read GetRunOnLastWeekOfMonth write SetRunOnLastWeekOfMonth;
     property StartTime : TDateTime read GetStartTime write SetStartTime;
-    property StopAtDurationEnd : boolean read GetStopAtDurationEnd write SetStopAtDurationEnd;
     property Subscription : string  read GetSubscription write SetSubscription;
     property TaskTrigger : ITrigger read pTrigger;
     property TriggerType : TWinTaskTriggerType read GetTriggerType;
@@ -246,6 +248,83 @@ type
     property Items[Index: Integer]: TWinTaskTrigger read GetItem write SetItem;
     end;
 
+  TWinTaskIdleSettings = class (TObject)
+  private
+    pIdleSettings : IIdleSettings;
+    function GetIdleDuration : cardinal;
+    procedure SetIdleDuration (Value : cardinal);
+    function GetRestartOnIdle : boolean;
+    procedure SetRestartOnIdle (Value : boolean);
+    function GetStopOnIdleEnd : boolean;
+    procedure SetStopOnIdleEnd (Value : boolean);
+    function GetWaitTimeout : cardinal;
+    procedure SetWaitTimeout (Value : cardinal);
+  public
+    constructor Create(AIdleSettings : IIdleSettings);
+    property IdleDuration : cardinal read GetIdleDuration write SetIdleDuration;  // time in seconds
+    property RestartOnIdle : boolean read GetRestartOnIdle write SetRestartOnIdle;
+    property StopOnIdleEnd : boolean read GetStopOnIdleEnd write SetStopOnIdleEnd;
+    property WaitTimeout : cardinal read GetWaitTimeout write SetWaitTimeout;  // time in seconds
+    end;
+
+  TWinTaskSettings = class (TObject)
+  private
+    pSettings : ITaskSettings;
+    FIdleSettings : TWinTaskIdleSettings;
+    function GetAllowDemandStart : boolean;
+    procedure SetAllowDemandStart (Value : boolean);
+    function GetAllowHardTerminate : boolean;
+    procedure SetAllowHardTerminate (Value : boolean);
+    function GetCompatibility : TWinTaskCompatibility;
+    procedure SetCompatibility (Value : TWinTaskCompatibility);
+    function GetDeleteExpiredTaskAfter : integer;  // time in hours
+    procedure SetDeleteExpiredTaskAfter (const Value : integer);
+    function GetExecutionTimeLimit : cardinal;  // time in hours
+    procedure SetExecutionTimeLimit (const Value : cardinal);
+    function GetHidden : boolean;
+    procedure SetHidden (Value : boolean);
+    function GetMultipleInstances : TMultipleInstances;
+    procedure SetMultipleInstances (Value : TMultipleInstances);
+    function GetDisallowOnBatteries : boolean;
+    procedure SetDisallowOnBatteries (Value : boolean);
+    function GetPriority : TThreadPriority;
+    procedure SetPriority (Value : TThreadPriority);
+    function GetRestartCount : cardinal;
+    procedure SetRestartCount (Value : cardinal);
+    function GetRestartInterval : cardinal;
+    procedure SetRestartInterval (Value : cardinal);
+    function GetRunIfMissed : boolean;
+    procedure SetRunIfMissed (Value : boolean);
+    function GetRunOnlyIfIdle : boolean;
+    procedure SetRunOnlyIfIdle (Value : boolean);
+    function GetRunOnlyIfNetwork : boolean;
+    procedure SetRunOnlyIfNetwork (Value : boolean);
+    function GetStopOnBatteries : boolean;
+    procedure SetStopOnBatteries (Value : boolean);
+    function GetWakeToRun : boolean;
+    procedure SetWakeToRun (Value : boolean);
+  public
+    constructor Create(const ASettings : ITaskSettings);
+    property AllowDemandStart : boolean read GetAllowDemandStart write SetAllowDemandStart;
+    property AllowHardTerminate : boolean read GetAllowHardTerminate write SetAllowHardTerminate;
+    property Compatibility : TWinTaskCompatibility read GetCompatibility write SetCompatibility;
+    property DeleteExpiredTaskAfter : integer read GetDeleteExpiredTaskAfter write SetDeleteExpiredTaskAfter;
+    property DisallowOnBatteries : boolean read GetDisallowOnBatteries write SetDisallowOnBatteries;
+    property ExecutionTimeLimit : cardinal read GetExecutionTimeLimit  write SetExecutionTimeLimit;
+    property Hidden : boolean read GetHidden write SetHidden;
+    property IdleSettings : TWinTaskIdleSettings read FIdleSettings;
+    property MultipleInstances : TMultipleInstances read GetMultipleInstances write SetMultipleInstances;
+//    NetworkSettings
+    property Priority : TThreadPriority read GetPriority write SetPriority;
+    property RestartCount : cardinal read GetRestartCount write SetRestartCount;
+    property RestartInterval : cardinal read GetRestartInterval write SetRestartInterval; // time in minutes
+    property RunIfMissed : boolean read GetRunIfMissed write SetRunIfMissed;
+    property RunOnlyIfIdle : boolean read GetRunOnlyIfIdle write SetRunOnlyIfIdle;
+    property RunOnlyIfNetwork : boolean read GetRunOnlyIfNetwork write SetRunOnlyIfNetwork;
+    property StopOnBatteries : boolean read GetStopOnBatteries write SetStopOnBatteries;
+    property WakeToRun : boolean read GetWakeToRun  write SetWakeToRun;
+    end;
+
   TWinTask = class (TObject)
   private
     pDefinition : ITaskDefinition;
@@ -253,8 +332,10 @@ type
     FActions : TWinTaskActions;
     FSelectedAction : integer;
     FTriggers: TWinTaskTriggers;
+    FSettings : TWinTaskSettings;
     function GetAuthor : string;
     procedure SetAuthor (const Value : string);
+    function GetCompatibilityAsString : string;
     function GetData : string;
     procedure SetData (const Value : string);
     function GetDate : TDateTime;
@@ -276,23 +357,6 @@ type
     procedure SetLogonType (Value : TLogonType);
     function GetRunLevel : boolean;
     procedure SetRunLevel (Value : boolean);
-    function GetCompatibility : TWinTaskCompatibility;
-    procedure SetCompatibility (Value : TWinTaskCompatibility);
-    function GetCompatibilityAsString : string;
-    function GetRunIfMissed : boolean;
-    procedure SetRunIfMissed (Value : boolean);
-    function GetRunOnlyIfNetwork : boolean;
-    procedure SetRunOnlyIfNetwork (Value : boolean);
-    function GetHidden : boolean;
-    procedure SetHidden (Value : boolean);
-    function GetDisallowOnBatteries : boolean;
-    procedure SetDisallowOnBatteries (Value : boolean);
-    function GetStopOnBatteries : boolean;
-    procedure SetStopOnBatteries (Value : boolean);
-    function GetPriority : TThreadPriority;
-    procedure SetPriority (Value : TThreadPriority);
-    function GetWakeToRun : boolean;
-    procedure SetWakeToRun (Value : boolean);
     function GetAction (Index: Integer) : TWinTaskAction;
     function GetActionCount : Integer;
     function GetTrigger (Index: Integer) : TWinTaskTrigger;
@@ -310,29 +374,22 @@ type
     property Actions[Index: Integer] : TWinTaskAction read GetAction;
     property ActionCount : integer read GetActionCount;
     property Author : string read GetAuthor write SetAuthor;
-    property Compatibility : TWinTaskCompatibility read GetCompatibility write SetCompatibility;
     property CompatibilityAsString : string read GetCompatibilityAsString;
-    property UserData : string read GetData write SetData;
     property Date : TDateTime read GetDate write SetDate;
     property DateAsString : string read GetDateAsString;
     property Description : string read GetDescription write SetDescription;
-    property DisallowOnBatteries : boolean read GetDisallowOnBatteries write SetDisallowOnBatteries;
     property DisplayName : string read GetDisplayName write SetDisplayName;
     property Documentation : string read GetDocumentation write SetDocumentation;
     property GroupId : string read GetGroupId write SetGroupId;
-    property Hidden : boolean read GetHidden write SetHidden;
     property Id : string read GetId write SetId;
     property LogonType : TLogonType read GetLogonType write SetLogonType;
-    property Priority : TThreadPriority read GetPriority write SetPriority;
-    property RunIfMissed : boolean read GetRunIfMissed write SetRunIfMissed;
     property HighestRunLevel : boolean read GetRunLevel write SetRunLevel;
-    property RunOnlyIfNetwork : boolean read GetRunOnlyIfNetwork write SetRunOnlyIfNetwork;
     property SelectedAction : integer read FSelectedAction;
-    property StopOnBatteries : boolean read GetStopOnBatteries write SetStopOnBatteries;
+    property Settings : TWinTaskSettings read FSettings;
     property Triggers[Index: Integer] : TWinTaskTrigger read GetTrigger;
     property TriggerCount : integer read GetTriggerCount;
+    property UserData : string read GetData write SetData;
     property UserId : string read GetUserId write SetUserId;
-    property WakeToRun : boolean read GetWakeToRun  write SetWakeToRun;
     end;
 
   TWinRegisteredTask = class (TObject)
@@ -453,13 +510,9 @@ function CreateWinTaskScheduler (var TaskSchedule : TWinTaskScheduler) : HResult
 
 implementation
 
-uses System.Win.ComObj, System.DateUtils, System.Math, System.StrUtils, Winapi.ActiveX,
-  Winapi.WinSvc, System.Variants, WinTaskConsts;
+uses System.SysUtils, System.Win.ComObj, System.DateUtils, System.Math, System.StrUtils,
+  Winapi.ActiveX, Winapi.WinSvc, System.Variants, WinTaskConsts;
 
-const
-  TaskTriggerNames : array[TWinTaskTriggerType] of string =
-    ('Event','Time','Daily','Weekly','Monthly','MonthlyDow','Idle','Register',
-     'Boot','Logon','State','Custom');
 var
   TaskStateNames : array[TWinTaskStatus] of pointer =
     (@rsTrgUnknown,@rsTrgReady,@rsTrgQueued,@rsTrgRunning,@rsTrgDisabled);
@@ -494,6 +547,9 @@ var
   Compatibilities : array[TWinTaskCompatibility] of LongWord =
     (TASK_COMPATIBILITY_AT,TASK_COMPATIBILITY_V1,TASK_COMPATIBILITY_V2,
      TASK_COMPATIBILITY_V2_1,TASK_COMPATIBILITY_V2_2);
+
+  TaskInstancesPolicies : array[TMultipleInstances] of LongWord =
+    (TASK_INSTANCES_PARALLEL,TASK_INSTANCES_QUEUE,TASK_INSTANCES_IGNORE_NEW,TASK_INSTANCES_STOP_EXISTING);
 
   Priorities : array[TThreadPriority] of integer = (10,9,7,5,3,1,0);
 
@@ -661,6 +717,44 @@ begin
       else Result:=tcWin7
       end
     else Result:=tcWin10;
+    end;
+  end;
+
+function TimeStringToSeconds (TimeString : string) : cardinal;
+var
+  n : word;
+begin
+  Result:=0;
+  if AnsiStartsText('P',TimeString) then begin
+    Delete(TimeString,1,1);
+    if AnsiStartsText('T',TimeString) then begin  // time
+      repeat
+        n:=ReadNextValue(TimeString);
+        if AnsiStartsText('H',TimeString) then Result:=Result+SecsPerHour*n;
+        if AnsiStartsText('M',TimeString) then Result:=Result+SecsPerMin*n;
+        if AnsiStartsText('S',TimeString) then Result:=Result+n;
+        if length(TimeString)>0 then delete(TimeString,1,1);
+        until length(TimeString)=0;
+      end
+    else begin // days
+      n:=ReadNextValue(TimeString);
+      if AnsiStartsText('D',TimeString) then Result:=Result+SecsPerDay*n;
+      end;
+    end
+  end;
+
+function SecondsToTimeString (Seconds : cardinal) : string;
+var
+  h,m,s : word;
+begin
+  if Seconds=0 then Result:=''
+  else if Seconds>=SecsPerDay then Result:='P'+IntToStr(Seconds div SecsPerDay)+'D'
+  else begin
+    Result:='PT';
+    DivMod(Seconds ,SecsPerHour,h,m); DivMod(m,SecsPerMin,m,s);
+    if h>0 then Result:=Result+IntToStr(h)+'H';
+    if m>0 then Result:=Result+IntToStr(m)+'M';
+    if s>0 then Result:=Result+IntToStr(s)+'S';
     end;
   end;
 
@@ -907,44 +1001,6 @@ begin
   FTimeZone:=BoundaryToTimeInfo(pTrigger.StartBoundary).TimeZone;
   end;
 
-function TWinTaskTrigger.TimeStringToSeconds (TimeString : string) : cardinal;
-var
-  n : word;
-begin
-  Result:=0;
-  if AnsiStartsText('P',TimeString) then begin
-    Delete(TimeString,1,1);
-    if AnsiStartsText('T',TimeString) then begin  // time
-      repeat
-        n:=ReadNextValue(TimeString);
-        if AnsiStartsText('H',TimeString) then Result:=Result+SecsPerHour*n;
-        if AnsiStartsText('M',TimeString) then Result:=Result+SecsPerMin*n;
-        if AnsiStartsText('S',TimeString) then Result:=Result+n;
-        if length(TimeString)>0 then delete(TimeString,1,1);
-        until length(TimeString)=0;
-      end
-    else begin // days
-      n:=ReadNextValue(TimeString);
-      if AnsiStartsText('D',TimeString) then Result:=Result+SecsPerDay*n;
-      end;
-    end
-  end;
-
-function TWinTaskTrigger.SecondsToTimeString (Seconds : cardinal) : string;
-var
-  h,m,s : word;
-begin
-  if Seconds=0 then Result:=''
-  else if Seconds>=SecsPerDay then Result:='P'+IntToStr(Seconds div SecsPerDay)+'D'
-  else begin
-    Result:='PT';
-    DivMod(Seconds ,SecsPerHour,h,m); DivMod(m,SecsPerMin,m,s);
-    if h>0 then Result:=Result+IntToStr(h)+'H';
-    if m>0 then Result:=Result+IntToStr(m)+'M';
-    if s>0 then Result:=Result+IntToStr(s)+'S';
-    end;
-  end;
-
 function TWinTaskTrigger.GetDaysOfWeek : integer;
 begin
   if FTriggerType=ttWeekly then Result:=IWeeklyTrigger(pTrigger).DaysOfWeek
@@ -1096,6 +1152,16 @@ begin
     end;
   end;
 
+function TWinTaskTrigger.GetStopAtDurationEnd : boolean;
+begin
+  Result:=pTrigger.Repetition.StopAtDurationEnd;
+  end;
+
+procedure TWinTaskTrigger.SetStopAtDurationEnd (Value : boolean);
+begin
+  pTrigger.Repetition.StopAtDurationEnd:=Value;
+  end;
+
 function TWinTaskTrigger.GetDuration : cardinal;            // time in seconds
 begin
   Result:=TimeStringToSeconds(pTrigger.Repetition.Duration);
@@ -1114,16 +1180,6 @@ begin
 procedure TWinTaskTrigger.SetInterval(Value : cardinal);
 begin
   pTrigger.Repetition.Interval:=SecondsToTimeString(Value);
-  end;
-
-function TWinTaskTrigger.GetStopAtDurationEnd : boolean;
-begin
-  Result:=pTrigger.Repetition.StopAtDurationEnd;
-  end;
-
-procedure TWinTaskTrigger.SetStopAtDurationEnd (Value : boolean);
-begin
-  pTrigger.Repetition.StopAtDurationEnd:=Value;
   end;
 
 function TWinTaskTrigger.GetExecutionTimeLimit : cardinal;  // time in seconds
@@ -1386,6 +1442,7 @@ begin
   FTask.pDefinition.Triggers.Clear;
   Clear;
   end;
+
 procedure TWinTaskTriggers.Remove (AIndex : integer);
 begin
   FTask.pDefinition.Triggers.Remove(AIndex+1);
@@ -1393,10 +1450,257 @@ begin
   end;
 
 {------------------------------------------------------------------- }
+constructor TWinTaskIdleSettings.Create (AIdleSettings : IIdleSettings);
+begin
+  inherited Create;
+  pIdleSettings:=AIdleSettings;
+  end;
+
+function TWinTaskIdleSettings.GetIdleDuration : cardinal;
+begin
+  Result:=TimeStringToSeconds(pIdleSettings.IdleDuration);
+  end;
+
+procedure TWinTaskIdleSettings.SetIdleDuration (Value : cardinal);
+begin
+  pIdleSettings.IdleDuration:=SecondsToTimeString(Value);
+  end;
+
+function TWinTaskIdleSettings.GetRestartOnIdle : boolean;
+begin
+  Result:=pIdleSettings.RestartOnIdle;
+  end;
+
+procedure TWinTaskIdleSettings.SetRestartOnIdle (Value : boolean);
+begin
+  pIdleSettings.RestartOnIdle:=Value;
+  end;
+
+function TWinTaskIdleSettings.GetStopOnIdleEnd : boolean;
+begin
+  Result:=pIdleSettings.StopOnIdleEnd;
+  end;
+
+procedure TWinTaskIdleSettings.SetStopOnIdleEnd (Value : boolean);
+begin
+  pIdleSettings.StopOnIdleEnd:=Value;
+  end;
+
+function TWinTaskIdleSettings.GetWaitTimeout : cardinal;
+begin
+  Result:=TimeStringToSeconds(pIdleSettings.WaitTimeout);
+  end;
+
+procedure TWinTaskIdleSettings.SetWaitTimeout (Value : cardinal);
+begin
+  pIdleSettings.WaitTimeout:=SecondsToTimeString(Value);
+  end;
+
+{------------------------------------------------------------------- }
+constructor TWinTaskSettings.Create (const ASettings : ITaskSettings);
+begin
+  inherited Create;
+  pSettings:=ASettings;
+  FIdleSettings:=TWinTaskIdleSettings.Create(pSettings.IdleSettings);
+  end;
+
+function TWinTaskSettings.GetAllowDemandStart : boolean;
+begin
+  Result:=pSettings.AllowDemandStart;
+  end;
+
+procedure TWinTaskSettings.SetAllowDemandStart (Value : boolean);
+begin
+  pSettings.AllowDemandStart:=Value;
+  end;
+
+function TWinTaskSettings.GetAllowHardTerminate : boolean;
+begin
+  Result:=pSettings.AllowHardTerminate;
+  end;
+
+procedure TWinTaskSettings.SetAllowHardTerminate (Value : boolean);
+begin
+  pSettings.AllowHardTerminate:=Value;
+  end;
+
+function TWinTaskSettings.GetCompatibility : TWinTaskCompatibility;
+begin
+  case pSettings.Compatibility of
+  TASK_COMPATIBILITY_AT   : Result:=tcAT;
+  TASK_COMPATIBILITY_V1   : Result:=tcXP;
+  TASK_COMPATIBILITY_V2   : Result:=tcVista;    // default value for new task
+  TASK_COMPATIBILITY_V2_1 : Result:=tcWin7;
+  else Result:=tcWin10;
+    end;
+  end;
+
+procedure TWinTaskSettings.SetCompatibility (Value : TWinTaskCompatibility);
+begin
+  pSettings.Compatibility:=Compatibilities[Value];
+  end;
+
+// DeleteExpiredTaskAfter = -1  disabled
+//                        =  0  immediate
+//                        >  0  number of hours
+function TWinTaskSettings.GetDeleteExpiredTaskAfter : integer;
+var
+  s : string;
+begin
+  s:=pSettings.DeleteExpiredTaskAfter;
+  if length(s)>0 then Result:=TimeStringToSeconds(s) div SecsPerHour
+  else Result:=-1;
+  end;
+
+procedure TWinTaskSettings.SetDeleteExpiredTaskAfter (const Value : integer);
+var
+  s : string;
+begin
+  if Value<0 then s:=''
+  else if Value=0 then s:='PT0S'
+  else s:=SecondsToTimeString(Value*SecsPerHour);
+  pSettings.DeleteExpiredTaskAfter:=s;
+  end;
+
+function TWinTaskSettings.GetExecutionTimeLimit : cardinal;  // time in hours
+begin
+  Result:=TimeStringToSeconds(pSettings.ExecutionTimeLimit) div SecsPerHour;
+  end;
+
+procedure TWinTaskSettings.SetExecutionTimeLimit (const Value : cardinal);
+begin
+  pSettings.ExecutionTimeLimit:=SecondsToTimeString(Value*SecsPerHour);
+  end;
+
+function TWinTaskSettings.GetRunIfMissed : boolean;
+begin
+  Result:=pSettings.StartWhenAvailable;
+  end;
+
+procedure TWinTaskSettings.SetRunIfMissed (Value : boolean);
+begin
+  pSettings.StartWhenAvailable:=Value;
+  end;
+
+function TWinTaskSettings.GetRunOnlyIfIdle : boolean;
+begin
+  Result:=pSettings.RunOnlyIfIdle;
+  end;
+
+procedure TWinTaskSettings.SetRunOnlyIfIdle (Value : boolean);
+begin
+  pSettings.RunOnlyIfIdle:=Value;
+  end;
+
+function TWinTaskSettings.GetRunOnlyIfNetwork : boolean;
+begin
+  Result:=pSettings.RunOnlyIfNetworkAvailable;
+  end;
+
+procedure TWinTaskSettings.SetRunOnlyIfNetwork (Value : boolean);
+begin
+  pSettings.RunOnlyIfNetworkAvailable:=Value;
+  end;
+
+function TWinTaskSettings.GetHidden : boolean;
+begin
+  Result:=pSettings.Hidden;
+  end;
+
+procedure TWinTaskSettings.SetHidden (Value : boolean);
+begin
+  pSettings.Hidden:=Value;
+  end;
+
+function TWinTaskSettings.GetMultipleInstances : TMultipleInstances;
+begin
+  case pSettings.MultipleInstances of
+  TASK_INSTANCES_QUEUE         : Result:=miQueue;
+  TASK_INSTANCES_IGNORE_NEW    : Result:=miIgnoreNew;
+  TASK_INSTANCES_STOP_EXISTING : Result:=miStopExisting;
+  else Result:=miParallel;
+    end;
+  end;
+
+function TWinTaskSettings.GetPriority : TThreadPriority;
+begin
+  case pSettings.Priority of
+  0 : Result:=tpTimeCritical;
+  1 : Result:=tpHighest;
+  2,3 : Result:=tpHigher;
+  7,8 : Result:=tpLower;
+  9  : Result:=tpLowest;
+  10 : Result:=tpIdle;
+  else Result:=tpNormal;
+    end;
+  end;
+
+procedure TWinTaskSettings.SetPriority (Value : TThreadPriority);
+begin
+  pSettings.Priority:=Priorities[Value];
+  end;
+
+function TWinTaskSettings.GetRestartCount : cardinal;
+begin
+  Result:=pSettings.RestartCount;
+  end;
+
+procedure TWinTaskSettings.SetRestartCount (Value : cardinal);
+begin
+  pSettings.RestartCount:=Value;
+  end;
+
+function TWinTaskSettings.GetRestartInterval : cardinal;
+begin
+  Result:=TimeStringToSeconds(pSettings.RestartInterval) div 60;
+  end;
+
+procedure TWinTaskSettings.SetRestartInterval (Value : cardinal);
+begin
+  pSettings.RestartInterval:=SecondsToTimeString(Value*60);
+  end;
+
+function TWinTaskSettings.GetWakeToRun : boolean;
+begin
+  Result:=pSettings.WakeToRun;
+  end;
+
+procedure TWinTaskSettings.SetWakeToRun (Value : boolean);
+begin
+  pSettings.WakeToRun:=Value;
+  end;
+
+procedure TWinTaskSettings.SetMultipleInstances (Value : TMultipleInstances);
+begin
+  pSettings.MultipleInstances:=TaskInstancesPolicies[Value];
+  end;
+
+function TWinTaskSettings.GetDisallowOnBatteries : boolean;
+begin
+  Result:=pSettings.DisallowStartIfOnBatteries;
+  end;
+
+procedure TWinTaskSettings.SetDisallowOnBatteries (Value : boolean);
+begin
+  pSettings.DisallowStartIfOnBatteries:=Value;
+  end;
+
+function TWinTaskSettings.GetStopOnBatteries : boolean;
+begin
+  Result:=pSettings.StopIfGoingOnBatteries;
+  end;
+
+procedure TWinTaskSettings.SetStopOnBatteries (Value : boolean);
+begin
+  pSettings.StopIfGoingOnBatteries:=Value;
+  end;
+
+{------------------------------------------------------------------- }
 constructor TWinTask.Create(const ADefinition : ITaskDefinition);
 begin
   inherited Create;
   pDefinition:=ADefinition;
+  FSettings:=TWinTaskSettings.Create(pDefinition.Settings);
   FData:=TMemoryStream.Create;
   FActions:=TWinTaskActions.Create(Self);
   FTriggers:=TWinTaskTriggers.Create(Self);
@@ -1405,7 +1709,7 @@ begin
 
 destructor TWinTask.Destroy;
 begin
-  FreeAndNil(FTriggers); FreeAndNil(FActions); FreeAndNil(FData);
+  FreeAndNil(FSettings); FreeAndNil(FTriggers); FreeAndNil(FActions); FreeAndNil(FData);
   pDefinition:=nil;
   inherited Destroy;
   end;
@@ -1418,6 +1722,11 @@ begin
 procedure TWinTask.SetAuthor (const Value : string);
 begin
   pDefinition.RegistrationInfo.Author:=Value;
+  end;
+
+function TWinTask.GetCompatibilityAsString : string;
+begin
+  Result:=LoadResString(CompatibilityNames[FSettings.Compatibility]);
   end;
 
 function TWinTask.GetData : string;
@@ -1515,6 +1824,7 @@ begin
   TASK_LOGON_GROUP  : Result:=ltGroup;
   TASK_LOGON_SERVICE_ACCOUNT  : Result:=ltService;
   TASK_LOGON_INTERACTIVE_TOKEN_OR_PASSWORD  : Result:=ltTokenPassword;
+  else Result:=ltNone;
     end;
   end;
 
@@ -1532,105 +1842,6 @@ procedure TWinTask.SetRunLevel (Value : boolean);
 begin
   with pDefinition.Principal do if Value then RunLevel:=TASK_RUNLEVEL_HIGHEST
   else RunLevel:=TASK_RUNLEVEL_LUA;
-  end;
-
-function TWinTask.GetCompatibility : TWinTaskCompatibility;
-begin
-  case pDefinition.Settings.Compatibility of
-  TASK_COMPATIBILITY_AT: Result:=tcAT;
-  TASK_COMPATIBILITY_V1: Result:=tcXP;
-  TASK_COMPATIBILITY_V2: Result:=tcVista;    // default value for new task
-  TASK_COMPATIBILITY_V2_1: Result:=tcWin7;
-  else Result:=tcWin10;
-    end;
-  end;
-
-procedure TWinTask.SetCompatibility (Value : TWinTaskCompatibility);
-begin
-  pDefinition.Settings.Compatibility:=Compatibilities[Value];
-  end;
-
-function TWinTask.GetCompatibilityAsString : string;
-begin
-  Result:=LoadResString(CompatibilityNames[GetCompatibility]);
-  end;
-
-function TWinTask.GetRunIfMissed : boolean;
-begin
-  Result:=pDefinition.Settings.StartWhenAvailable;
-  end;
-
-procedure TWinTask.SetRunIfMissed (Value : boolean);
-begin
-  pDefinition.Settings.StartWhenAvailable:=Value;
-  end;
-
-function TWinTask.GetRunOnlyIfNetwork : boolean;
-begin
-  Result:=pDefinition.Settings.RunOnlyIfNetworkAvailable;
-  end;
-
-procedure TWinTask.SetRunOnlyIfNetwork (Value : boolean);
-begin
-  pDefinition.Settings.RunOnlyIfNetworkAvailable:=Value;
-  end;
-
-function TWinTask.GetHidden : boolean;
-begin
-  Result:=pDefinition.Settings.Hidden;
-  end;
-
-procedure TWinTask.SetHidden (Value : boolean);
-begin
-  pDefinition.Settings.Hidden:=Value;
-  end;
-
-function TWinTask.GetDisallowOnBatteries : boolean;
-begin
-  Result:=pDefinition.Settings.DisallowStartIfOnBatteries;
-  end;
-
-procedure TWinTask.SetDisallowOnBatteries (Value : boolean);
-begin
-  pDefinition.Settings.DisallowStartIfOnBatteries:=Value;
-  end;
-
-function TWinTask.GetStopOnBatteries : boolean;
-begin
-  Result:=pDefinition.Settings.StopIfGoingOnBatteries;
-  end;
-
-procedure TWinTask.SetStopOnBatteries (Value : boolean);
-begin
-  pDefinition.Settings.StopIfGoingOnBatteries:=Value;
-  end;
-
-function TWinTask.GetPriority : TThreadPriority;
-begin
-  case pDefinition.Settings.Priority of
-  0 : Result:=tpTimeCritical;
-  1 : Result:=tpHighest;
-  2,3 : Result:=tpHigher;
-  7,8 : Result:=tpLower;
-  9  : Result:=tpLowest;
-  10 : Result:=tpIdle;
-  else Result:=tpNormal;
-    end;
-  end;
-
-procedure TWinTask.SetPriority (Value : TThreadPriority);
-begin
-  pDefinition.Settings.Priority:=Priorities[Value];
-  end;
-
-function TWinTask.GetWakeToRun : boolean;
-begin
-  Result:=pDefinition.Settings.WakeToRun;
-  end;
-
-procedure TWinTask.SetWakeToRun (Value : boolean);
-begin
-  pDefinition.Settings.WakeToRun:=Value;
   end;
 
 function TWinTask.GetAction(Index: Integer) : TWinTaskAction;
@@ -2056,9 +2267,8 @@ begin
 function TWinTaskScheduler.NewTask : TWinTask;
 begin
   Result:=TWinTask.Create(pService.NewTask(0));
-  Result.Compatibility:=GetDefaultCompatibility; // appropriate to current system
+  Result.Settings.Compatibility:=GetDefaultCompatibility; // appropriate to current system
   end;
-
 
 //function TWinTaskScheduler.Add (const TaskName: String) : TWinTask;
 //var

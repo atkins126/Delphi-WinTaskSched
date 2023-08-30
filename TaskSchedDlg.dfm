@@ -24,7 +24,7 @@ object TaskScheduleDialog: TTaskScheduleDialog
     Top = 46
     Width = 465
     Height = 278
-    ActivePage = tsSchedule
+    ActivePage = tsProgram
     Align = alClient
     Style = tsButtons
     TabOrder = 1
@@ -146,7 +146,6 @@ object TaskScheduleDialog: TTaskScheduleDialog
         EditLabel.Width = 128
         EditLabel.Height = 13
         EditLabel.Caption = 'Command line parameters:'
-        ReadOnly = True
         TabOrder = 4
       end
       object rgPriority: TRadioGroup
@@ -181,6 +180,10 @@ object TaskScheduleDialog: TTaskScheduleDialog
         TabOrder = 2
         object tsDaily: TTabSheet
           TabVisible = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object Label1: TLabel
             Left = 15
             Top = 25
@@ -385,6 +388,10 @@ object TaskScheduleDialog: TTaskScheduleDialog
           ParentShowHint = False
           ShowHint = False
           TabVisible = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object Label4: TLabel
             Left = 15
             Top = 25
@@ -645,6 +652,10 @@ object TaskScheduleDialog: TTaskScheduleDialog
         object tsMonthly: TTabSheet
           ImageIndex = 2
           TabVisible = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object laMonth: TLabel
             Left = 10
             Top = 5
@@ -1202,6 +1213,10 @@ object TaskScheduleDialog: TTaskScheduleDialog
         object tsEvent: TTabSheet
           ImageIndex = 5
           TabVisible = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object laEvent: TLabel
             Left = 10
             Top = 5
@@ -1399,6 +1414,10 @@ object TaskScheduleDialog: TTaskScheduleDialog
         object tsUser: TTabSheet
           ImageIndex = 3
           TabVisible = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object Label14: TLabel
             Left = 15
             Top = 60
